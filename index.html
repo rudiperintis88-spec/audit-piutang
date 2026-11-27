@@ -530,7 +530,7 @@ function renderTop() {
     : `<div class="banner ok">Hasil cek: semua sesuai. Total Database sama dengan Sheet1, dan total PKS &amp; Customer sama dengan Grand Total Pribadi.</div>`;
   const nIssue = (sel ? 1 : 0) + r.missSA.length + r.newCust.length;
   $('cards').innerHTML = `
-    <div class="card big" data-pop="s1"><div><div class="lb"><i></i>Total piutang opname (Sheet1)</div><div class="bignum">${fmt(r.total1)}</div></div>
+    <div class="card big" data-pop="s1"><div><div class="lb"><i></i>Total piutang opname</div><div class="bignum">${fmt(r.total1)}</div></div>
       <div><div class="sb"><b>${r.s1.length.toLocaleString('id-ID')}</b> faktur dari <b>${nCust.toLocaleString('id-ID')}</b> customer</div><div class="brk">${brk}</div></div></div>
     <div class="card" data-pop="pks"><div class="lb"><i></i>PKS &amp; Customer</div><div class="val">${r.pks.length} baris</div><div class="sb">Rp ${fmt(r.totalPks)}</div></div>
     <div class="card grn" data-pop="pri"><div class="lb"><i></i>Piutang Customer Pribadi</div><div class="val">${fmt(r.grandTotal)}</div><div class="sb">${nGrp} customer &middot; ${nSec} bulan</div></div>
@@ -721,7 +721,7 @@ function popHtml(k) {
     r.s1.forEach(x => { (cab[x.cabang] = cab[x.cabang] || { n: 0, t: 0 }); cab[x.cabang].n++; cab[x.cabang].t += x.jumlah; const c = cu[x.cust] = cu[x.cust] || { nama: x.nama, n: 0, t: 0 }; c.n++; c.t += x.jumlah; });
     const rc = Object.entries(cab).sort((a, b) => b[1].t - a[1].t).map(([c, v]) => [c, v.n, fmt(v.t)]); rc.push({ _t: 1, c: ['Total', r.s1.length, fmt(r.total1)] });
     const rcu = Object.entries(cu).sort((a, b) => b[1].t - a[1].t).map(([c, v], i) => [i + 1, c, v.nama, v.n, fmt(v.t)]);
-    return ['Total piutang opname (Sheet1)', '<h4>Per Ket</h4>' + tbl(['Ket', 'Faktur', 'Jumlah'], rc, [1, 2]) + '<h4>Per customer (' + rcu.length + ')</h4>' + tbl(['No', 'No.Cust', 'Nama Debitur', 'Faktur', 'Jumlah'], rcu, [3, 4])];
+    return ['Total piutang opname', '<h4>Per Ket</h4>' + tbl(['Ket', 'Faktur', 'Jumlah'], rc, [1, 2]) + '<h4>Per customer (' + rcu.length + ')</h4>' + tbl(['No', 'No.Cust', 'Nama Debitur', 'Faktur', 'Jumlah'], rcu, [3, 4])];
   }
   if (k === 'pks') {
     const rows = r.pks.map(x => [x.n, x.cust, x.nama, x.faktur, PL.fmtDate(x.jto), fmt(x.jumlah), x.ket, x.tgl ? PL.fmtDate(x.tgl) : '', x.cabang].concat(r.nPkb > 0 ? [x.pkb] : [])); rows.push({ _t: 1, c: ['', '', 'Total', '', '', fmt(r.totalPks), '', '', ''].concat(r.nPkb > 0 ? [''] : []) });
