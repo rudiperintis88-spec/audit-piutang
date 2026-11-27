@@ -297,8 +297,7 @@
       const mn = Math.min(...ds), mx = Math.max(...ds);
       return mn === mx ? 'Tanda Terima ' + fmtDate(mn) : 'Tanda Terima (' + fmtDate(mn) + ' & ' + fmtDate(mx) + ')';
     }
-    if (/^\(?\s*Lunas/i.test(first.ket) || /PSO|kurang(an)?\s*(bayar|pembayaran)/i.test(first.ket)) return first.ket;
-    return '';
+    return first.ket || '';
   }
 
   function parsePrevPks(rows) {
@@ -313,6 +312,17 @@
     }
     return o;
   }
+  /* sheet Update: Faktur No. | Keterangan | Tgl TTD -> menimpa Data Sebelumnya (semua keterangan dipakai) */
+  function mergeUpdate(prev, rows) {
+    const o = Object.assign({}, prev);
+    for (const r of rows || []) {
+      if (!r) continue;
+      const f = S(r[0]);
+      if (!f || /^faktur/i.test(f)) continue;
+      o[f] = { ket: S(r[1]), tgl: r[2] == null ? '' : r[2], cabang: (o[f] && o[f].cabang) || '' };
+    }
+    return o;
+  }
   function parsePrevPri(rows) {
     const o = {}; let title = '';
     for (const r of rows || []) {
@@ -323,7 +333,7 @@
     }
     return o;
   }
-  const api = { parsePrevPks, parsePrevPri, build, parseDatabase, parseDate, parseNum, fmtDate, fmtDateLong, serToYMD, ymdToSer, monthLabel, PKS_LABELS_DEFAULT };
+  const api = { mergeUpdate, parsePrevPks, parsePrevPri, build, parseDatabase, parseDate, parseNum, fmtDate, fmtDateLong, serToYMD, ymdToSer, monthLabel, PKS_LABELS_DEFAULT };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.PL = api;
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
@@ -336,9 +346,9 @@ function lsGet(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.
 function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
 
 const BRANCHES = [
-  { k: 'am', name: 'Adam Malik', judul: 'H. Adam Malik', pso: true, labels: ['CUSTOMER', 'CUSTOMER (LUNAS VIA PSO)', 'PKS (PERJANJIAN KERJA SAMA)'], pub: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTxlYmeVaC3QewARe-3IMRyKdyZCA5rCHp7SY8_nCL2dO42yzy2pBKmx6n7HB6bwPCb2A6jzgqLqQ70/pub?output=csv' },
-  { k: 'gf', name: 'GR Flamboyan', judul: 'GR Flamboyan', pso: false, labels: ['CUSTOMER'], pub: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRNR0gRBBml7K5wy868V8Dh76KJdLE-ojJJizR0qrV_iTLsZ-SkWKUqsUtcTvs-DQkP4LgMA8AtSCXD/pub?output=csv' },
-  { k: 'br', name: 'Body Repair', judul: 'Body Repair Flamboyan', pso: false, labels: ['CUSTOMER', 'PERINTIS GROUP', 'TAM'], kurang: true, pub: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSUiOFt6aU6tYJzuSBtpJqb7pAzSRtdcFVJXcgkmKCoj9ib3RjIUZaSov5_Wuqb3sRvqvG5T79hrLK1/pub?output=csv' }
+  { k: 'am', name: 'Adam Malik', judul: 'H. Adam Malik', pso: true, upd: 1884136810, labels: ['CUSTOMER', 'CUSTOMER (LUNAS VIA PSO)', 'PKS (PERJANJIAN KERJA SAMA)'], pub: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTxlYmeVaC3QewARe-3IMRyKdyZCA5rCHp7SY8_nCL2dO42yzy2pBKmx6n7HB6bwPCb2A6jzgqLqQ70/pub?output=csv' },
+  { k: 'gf', name: 'GR Flamboyan', judul: 'GR Flamboyan', pso: false, upd: 85732455, labels: ['CUSTOMER'], pub: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRNR0gRBBml7K5wy868V8Dh76KJdLE-ojJJizR0qrV_iTLsZ-SkWKUqsUtcTvs-DQkP4LgMA8AtSCXD/pub?output=csv' },
+  { k: 'br', name: 'Body Repair', judul: 'Body Repair Flamboyan', pso: false, upd: 1415219349, labels: ['CUSTOMER', 'PERINTIS GROUP', 'TAM'], kurang: true, pub: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSUiOFt6aU6tYJzuSBtpJqb7pAzSRtdcFVJXcgkmKCoj9ib3RjIUZaSov5_Wuqb3sRvqvG5T79hrLK1/pub?output=csv' }
 ];
 const HEAD0 = ['No.Cust', 'Nama Debitur', 'Ket', 'Cabang', '', 'S A', 'Nama SA'];
 const B = {
@@ -418,11 +428,11 @@ function renderTop() {
 
 function head(t) { return `<div class="ttl">BERITA ACARA</div><div class="opn">${esc(state.title)}</div>`; }
 let HASPKB = true;
-const COLS = ['No', 'No.Cust', 'Nama Debitur', 'No Polisi', 'Faktur No.', 'TOP', 'Tgl.Jto', 'Jumlah', 'Giro', 'S A', 'Nama SA', 'Keterangan', 'Tgl TTD', 'Cabang', 'Ket', 'No PKB (PSO Part Belum Ambil)'];
+const COLS = ['No', 'No.Cust', 'Nama Debitur', 'No Polisi', 'Faktur No.', 'TOP', 'Tgl.Jto', 'Jumlah', 'Giro', 'S A', 'Nama SA', 'Keterangan', 'Tgl TTD', 'Ket', 'No PKB (PSO Part Belum Ambil)'];
 
 function rowCells(r) {
   const ket = r.ket !== undefined ? `<td>${esc(r.ket)}</td><td class="c">${r.tgl ? PL.fmtDate(r.tgl) : ''}</td>` : `<td></td><td></td>`;
-  return `<td class="c">${r.n != null ? r.n : r.no}</td><td>${esc(r.cust)}</td><td>${esc(r.nama)}</td><td>${esc(r.plat)}</td><td>${esc(r.faktur)}</td><td class="c">${esc(r.top)}</td><td class="c">${PL.fmtDate(r.jto)}</td><td class="r">${fmt(r.jumlah)}</td><td>${esc(r.giro)}</td><td>${esc(r.sa)}</td><td>${esc(r.namaSA)}</td>${ket}<td>${esc(r.cab)}</td><td>${esc(r.cabang)}</td>${HASPKB ? `<td>${esc(r.pkb)}</td>` : ''}`;
+  return `<td class="c">${r.n != null ? r.n : r.no}</td><td>${esc(r.cust)}</td><td>${esc(r.nama)}</td><td>${esc(r.plat)}</td><td>${esc(r.faktur)}</td><td class="c">${esc(r.top)}</td><td class="c">${PL.fmtDate(r.jto)}</td><td class="r">${fmt(r.jumlah)}</td><td>${esc(r.giro)}</td><td>${esc(r.sa)}</td><td>${esc(r.namaSA)}</td>${ket}<td>${esc(r.cabang)}</td>${HASPKB ? `<td>${esc(r.pkb)}</td>` : ''}`;
 }
 function isoDate(s) { const [y, m, d] = PL.serToYMD(s); return y + '-' + String(m).padStart(2, '0') + '-' + String(d).padStart(2, '0'); }
 function thead() { return '<tr>' + (HASPKB ? COLS : COLS.slice(0, -1)).map(c => `<th>${c}</th>`).join('') + '</tr>'; }
@@ -485,12 +495,12 @@ $('tabs').onclick = e => {
 function mkSheet(kind, r) {
   const A = [];
   A[0] = ['BERITA ACARA']; A[3] = [state.title];
-  A[5] = ['No', 'No.Cust', 'Nama Debitur', 'No Polisi', 'Faktur No.', 'TOP', 'Tgl.Jto', 'Jumlah', 'Giro', 'S A', 'Nama SA', 'Keterangan', 'Tgl TTD', 'Cabang', 'Ket', 'Pelunasan', '', 'No PKB (PSO Part Belum Ambil)'];
-  if (!(r.nPkb > 0)) A[5] = A[5].slice(0, 17);
+  A[5] = ['No', 'No.Cust', 'Nama Debitur', 'No Polisi', 'Faktur No.', 'TOP', 'Tgl.Jto', 'Jumlah', 'Giro', 'S A', 'Nama SA', 'Keterangan', 'Tgl TTD', 'Ket', 'Pelunasan', '', 'No PKB (PSO Part Belum Ambil)'];
+  if (!(r.nPkb > 0)) A[5] = A[5].slice(0, 16);
   const rows = kind === 'pks' ? r.pks : r.s1;
   rows.forEach((x, i) => {
     A.push([kind === 'pks' ? x.n : x.no, x.cust, x.nama, x.plat, x.faktur, x.top, x.jto, x.jumlah, x.giro, x.sa, x.namaSA,
-      kind === 'pks' ? x.ket : '', kind === 'pks' ? x.tgl : null, x.cab, x.cabang, '', '', ...(r.nPkb > 0 ? [x.pkb] : [])]);
+      kind === 'pks' ? x.ket : '', kind === 'pks' ? x.tgl : null, x.cabang, '', '', ...(r.nPkb > 0 ? [x.pkb] : [])]);
   });
   A.push(['Total:', '', '', '', '', '', '', kind === 'pks' ? r.totalPks : r.total1]);
   const ws = XLSX.utils.aoa_to_sheet(A);
@@ -499,8 +509,8 @@ function mkSheet(kind, r) {
     for (const c of ['G', 'M']) { const cell = ws[c + i]; if (cell && typeof cell.v === 'number') { cell.t = 'n'; cell.z = 'dd/mm/yyyy'; } }
     const h = ws['H' + i]; if (h && typeof h.v === 'number') h.z = '#,##0';
   }
-  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 16 } }, { s: { r: 3, c: 0 }, e: { r: 3, c: 5 } }, { s: { r: 5, c: 15 }, e: { r: 5, c: 16 } }, { s: { r: 5, c: 17 }, e: { r: 5, c: 19 } }, { s: { r: last - 1, c: 0 }, e: { r: last - 1, c: 6 } }];
-  ws['!cols'] = [6, 14, 34, 13, 20, 5, 11, 13, 6, 10, 24, 18, 11, 2, 28, 8, 8, 22, 8, 8].map(w => ({ wch: w }));
+  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 15 } }, { s: { r: 3, c: 0 }, e: { r: 3, c: 5 } }, { s: { r: 5, c: 14 }, e: { r: 5, c: 15 } }, { s: { r: 5, c: 16 }, e: { r: 5, c: 18 } }, { s: { r: last - 1, c: 0 }, e: { r: last - 1, c: 6 } }];
+  ws['!cols'] = [6, 14, 34, 13, 20, 5, 11, 13, 6, 10, 24, 18, 11, 28, 8, 8, 22, 8, 8].map(w => ({ wch: w }));
   return ws;
 }
 function mkPri(r) {
@@ -558,8 +568,8 @@ function popHtml(k) {
     return ['Total piutang opname (Sheet1)', '<h4>Per Ket</h4>' + tbl(['Ket', 'Faktur', 'Jumlah'], rc, [1, 2]) + '<h4>Per customer (' + rcu.length + ')</h4>' + tbl(['No', 'No.Cust', 'Nama Debitur', 'Faktur', 'Jumlah'], rcu, [3, 4])];
   }
   if (k === 'pks') {
-    const rows = r.pks.map(x => [x.n, x.cust, x.nama, x.faktur, PL.fmtDate(x.jto), fmt(x.jumlah), x.ket, x.tgl ? PL.fmtDate(x.tgl) : '', x.cab, x.cabang].concat(r.nPkb > 0 ? [x.pkb] : [])); rows.push({ _t: 1, c: ['', '', 'Total', '', '', fmt(r.totalPks), '', '', '', ''].concat(r.nPkb > 0 ? [''] : []) });
-    return ['PKS & Customer (' + r.pks.length + ' baris)', tbl(['No', 'No.Cust', 'Nama Debitur', 'Faktur No.', 'Tgl.Jto', 'Jumlah', 'Keterangan', 'Tgl TTD', 'Cabang', 'Ket'].concat(r.nPkb > 0 ? ['No PKB'] : []), rows, [5])];
+    const rows = r.pks.map(x => [x.n, x.cust, x.nama, x.faktur, PL.fmtDate(x.jto), fmt(x.jumlah), x.ket, x.tgl ? PL.fmtDate(x.tgl) : '', x.cabang].concat(r.nPkb > 0 ? [x.pkb] : [])); rows.push({ _t: 1, c: ['', '', 'Total', '', '', fmt(r.totalPks), '', '', ''].concat(r.nPkb > 0 ? [''] : []) });
+    return ['PKS & Customer (' + r.pks.length + ' baris)', tbl(['No', 'No.Cust', 'Nama Debitur', 'Faktur No.', 'Tgl.Jto', 'Jumlah', 'Keterangan', 'Tgl TTD', 'Ket'].concat(r.nPkb > 0 ? ['No PKB'] : []), rows, [5])];
   }
   if (k === 'pri') {
     let h = ''; r.sections.forEach(s => { const rows = s.items.map(g => [g.cust, g.nama, fmt(g.total), g.note]); rows.push({ _t: 1, c: ['', 'Total', fmt(s.total), ''] }); h += '<h4>' + esc(s.title) + '</h4>' + tbl(['No Customer', 'Nama Customer', 'Nilai', 'Keterangan'], rows, [2]); });
@@ -594,9 +604,9 @@ function makePdf(tabIn, docIn) {
   if (tab === 's1' || tab === 'pks') {
     const isP = tab === 'pks', rows = isP ? r.pks : r.s1;
     name = isP ? 'PKS & Customer' : 'Sheet1'; lines = ['BERITA ACARA', state.title]; const hp = r.nPkb > 0; head = [hp ? COLS : COLS.slice(0, -1)];
-    body = rows.map(x => [isP ? x.n : x.no, x.cust, x.nama, x.plat, x.faktur, x.top, PL.fmtDate(x.jto), fmt(x.jumlah), x.giro, x.sa, x.namaSA, isP ? x.ket : '', isP && x.tgl ? PL.fmtDate(x.tgl) : '', x.cab, x.cabang, ...(hp ? [x.pkb] : [])]);
-    body.push([{ content: 'Total:', colSpan: 7, styles: { fontStyle: 'bold' } }, { content: fmt(isP ? r.totalPks : r.total1), styles: { fontStyle: 'bold', halign: 'right' } }, { content: '', colSpan: hp ? 8 : 7 }]);
-    const w = hp ? [22, 52, 96, 50, 78, 20, 42, 48, 18, 44, 68, 52, 42, 48, 66, 66] : [24, 56, 110, 56, 88, 22, 46, 54, 20, 50, 76, 70, 48, 56, 80];
+    body = rows.map(x => [isP ? x.n : x.no, x.cust, x.nama, x.plat, x.faktur, x.top, PL.fmtDate(x.jto), fmt(x.jumlah), x.giro, x.sa, x.namaSA, isP ? x.ket : '', isP && x.tgl ? PL.fmtDate(x.tgl) : '', x.cabang, ...(hp ? [x.pkb] : [])]);
+    body.push([{ content: 'Total:', colSpan: 7, styles: { fontStyle: 'bold' } }, { content: fmt(isP ? r.totalPks : r.total1), styles: { fontStyle: 'bold', halign: 'right' } }, { content: '', colSpan: hp ? 7 : 6 }]);
+    const w = hp ? [22, 52, 96, 50, 78, 20, 42, 48, 18, 44, 68, 52, 42, 66, 66] : [24, 56, 110, 56, 88, 22, 46, 54, 20, 50, 76, 70, 48, 80];
     const sc = (doc.internal.pageSize.getWidth() - 40) / w.reduce((a, b) => a + b, 0);
     w.forEach((v, i) => colStyles[i] = { cellWidth: v * sc });
     Object.assign(colStyles[0], { halign: 'center' }); Object.assign(colStyles[5], { halign: 'center' }); Object.assign(colStyles[6], { halign: 'center' }); Object.assign(colStyles[7], { halign: 'right' });
@@ -694,7 +704,7 @@ document.addEventListener('click', () => document.querySelectorAll('.exp .menu')
 /* ---------- popup rincian kartu ---------- */
 
 /* ---------- baca langsung dari Google Sheets (tanpa Apps Script) ---------- */
-const GIDS = { Data: 0, Sebelumnya: 221598919, Database: 221115748, PSO: 1711111175 };
+const GIDS = { Update: 0, Data: 0, Sebelumnya: 221598919, Database: 221115748, PSO: 1711111175 };
 function parseCsv(s) {
   const rows = []; let row = [], f = '', q = false;
   for (let i = 0; i < s.length; i++) {
@@ -712,12 +722,12 @@ async function loadSheets(br) {
   const m = br.pub.match(/\/d\/e\/([a-zA-Z0-9_-]+)/);
   if (!m) throw new Error('Link publikasi ' + br.name + ' tidak dikenali');
   const get = async (key, must) => {
-    const res = await fetch('https://docs.google.com/spreadsheets/d/e/' + m[1] + '/pub?gid=' + GIDS[key] + '&single=true&output=csv&t=' + Date.now());
+    const res = await fetch('https://docs.google.com/spreadsheets/d/e/' + m[1] + '/pub?gid=' + (key === 'Update' ? br.upd : GIDS[key]) + '&single=true&output=csv&t=' + Date.now());
     if (!res.ok) { if (must) throw new Error('Sheet ' + key + ': HTTP ' + res.status); return null; }
     return parseCsv(await res.text());
   };
-  const [Database, Data, PSO, Sebelumnya] = await Promise.all([get('Database', true), get('Data', true), br.pso ? get('PSO', false).catch(() => null) : null, get('Sebelumnya', false).catch(() => null)]);
-  return { Database, Data, PSO, Sebelumnya };
+  const [Database, Data, PSO, Sebelumnya, Update] = await Promise.all([get('Database', true), get('Data', true), br.pso ? get('PSO', false).catch(() => null) : null, get('Sebelumnya', false).catch(() => null), get('Update', false).catch(() => null)]);
+  return { Database, Data, PSO, Sebelumnya, Update };
 }
 function applyLoaded(br, j) {
   if (!j.Database || j.Database.length < 3) throw new Error('Sheet Database kosong / tidak terbaca');
@@ -730,6 +740,7 @@ function applyLoaded(br, j) {
     s.prevPks = PL.parsePrevPks(j.Sebelumnya);
     s.rawPrev = j.Sebelumnya.filter(r => r && (/^\d+$/.test(String(r[0] == null ? '' : r[0]).trim()) && r[4])).map(r => r.slice(0, 15));
   }
+  if (j.Update && j.Update.length > 1) s.prevPks = PL.mergeUpdate(s.prevPks, j.Update);
   s.ok = true;
   if (br.k === 'am') { lsSet('pl_data', s.data); lsSet('pl_pso', s.pso); lsSet('pl_prev2', s.prevPks); }
 }
