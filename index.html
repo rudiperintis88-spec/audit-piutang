@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Laporan Piutang Adam Malik</title>
+<title>Laporan Piutang</title>
 <style>
   :root{--bg:#ffffff;--ink:#1c2230;--mut:#6b7385;--line:#e4e7ec;--card:#fff;--acc:#2f5fd0;
     --red:#d8322b;--redbg:#fdeeed;--redln:#f2c4c0;--grn:#1f9d55;--amb:#b8590b;--ambbg:#fdf2de;--ambln:#f0d9a8;--okbg:#e9f6ee;--okln:#b6ddc4;--yel:#fff8dc;
@@ -98,7 +98,7 @@
 <main>
   <div class="top">
     <div>
-      <h1>Laporan Piutang Adam Malik</h1>
+      <h1>Laporan Piutang</h1>
       <div class="per" id="per">Per : -</div>
     </div>
     <div class="status noprint">
@@ -283,7 +283,7 @@
       const mn = Math.min(...ds), mx = Math.max(...ds);
       return mn === mx ? 'Tanda Terima ' + fmtDate(mn) : 'Tanda Terima (' + fmtDate(mn) + ' & ' + fmtDate(mx) + ')';
     }
-    if (/^Lunas/i.test(first.ket)) return first.ket;
+    if (/^\(?\s*Lunas/i.test(first.ket) || /PSO/i.test(first.ket)) return first.ket;
     return '';
   }
 
@@ -294,7 +294,8 @@
       const f = S(r[4]);
       if (!f || !S(r[1]) || f === 'Faktur No.') continue;
       const cab = S(r[14]) || S(r[13]);
-      o[f] = { ket: S(r[11]), tgl: r[12] == null ? '' : r[12], cabang: cab };
+      const k = S(r[11]), ok = /^(lunas|tanda\s*terima)|pso/i.test(k);
+      o[f] = { ket: ok ? k : '', tgl: ok && r[12] != null ? r[12] : '', cabang: cab };
     }
     return o;
   }
@@ -328,15 +329,22 @@ let state = {
   prevPks: lsGet('pl_prev2', {}),
   prevPri: {},
   labels: lsGet('pl_labels', PL.PKS_LABELS_DEFAULT),
-  title: null, tab: 's1', res: null, db: null, src: 'Laporan Piutang Adam Malik', rawPrev: null
+  title: null, tab: 's1', res: null, db: null, src: 'Laporan Piutang', rawPrev: null
 };
 
+const KODE_CAB = { PP: 'H. Adam Malik', PF: 'GR Flamboyan', PB: 'Body Repair Flamboyan' };
+function cabangNama() {
+  const c = {};
+  state.db.rows.forEach(r => { const k = String(r.faktur).split('/')[2]; if (k) c[k.trim().toUpperCase()] = (c[k.trim().toUpperCase()] || 0) + 1; });
+  const ks = Object.keys(c).sort((a, b) => c[b] - c[a]);
+  return ks.length ? ks.map(k => KODE_CAB[k] || k).join(' & ') : 'H. Adam Malik';
+}
 function recompute() {
   state.db = PL.parseDatabase(state.dbRows);
   state.res = PL.build(state.db, state.data, state.pso, state.manual, { pksLabels: state.labels, prevPks: state.prevPks, prevPri: state.prevPri });
   if (state.title == null) {
     const d = state.db.asOf ? PL.fmtDateLong(state.db.asOf) : '';
-    state.title = 'Opname Piutang di PT. Perintis Perkasa (H. Adam Malik)' + (d ? ' Per ' + d : '');
+    state.title = 'Opname Piutang di PT. Perintis Perkasa (' + cabangNama() + ')' + (d ? ' Per ' + d : '');
   }
   $('opTitle').value = state.title;
   renderTop(); renderOpts(); renderSheet();
@@ -624,7 +632,7 @@ async function pull(auto) {
     state.dbRows = j.Database;
     if (j.Data && j.Data.length > 1) { state.dataHead = j.Data[0].slice(0, 7).map(x => x == null ? '' : String(x)); state.data = j.Data.slice(1).map(r => r.map(x => x == null ? '' : x)); lsSet('pl_data', state.data); }
     if (j.PSO && j.PSO.length > 1) { state.pso = j.PSO.slice(1).map(r => [r[4], r[8], r[9]]).filter(r => r[0]); lsSet('pl_pso', state.pso); }
-    state.src = 'Laporan Piutang Adam Malik';
+    state.src = 'Laporan Piutang';
     let pp = {};
     if (j.Sebelumnya && j.Sebelumnya.length > 1) {
       pp = PL.parsePrevPks(j.Sebelumnya);
