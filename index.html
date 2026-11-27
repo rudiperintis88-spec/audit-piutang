@@ -93,6 +93,8 @@
   #pop .hd{display:flex;justify-content:space-between;align-items:center;padding:18px 24px;border-bottom:1px solid var(--line)} #pop .hd h3{margin:0;font:400 24px var(--serif)}
   #pop .x{border:0;background:#eef0f4;border-radius:50%;width:34px;height:34px;font-size:18px;cursor:pointer} #pop .bd{padding:16px 24px 24px;overflow:auto}
   #pop table{border-collapse:collapse;width:100%;font-size:10pt;font-family:Arial,sans-serif} #pop table.fx{table-layout:fixed} #pop td,#pop th{white-space:normal;word-break:break-word;font-family:Arial,sans-serif;font-size:10pt} #pop td.r{font-family:Arial,sans-serif} #pop th,#pop td{border:1px solid #d9dde5;padding:5px 8px;text-align:left} #pop th{background:#eef0f4;position:sticky;top:0} #pop td.r{text-align:right;font-variant-numeric:tabular-nums} #pop tr.tt td{font-weight:700;background:#f6f7fa} #pop h4{margin:16px 0 6px;font-size:14px}
+  #pop.wide .box{max-width:96vw}
+  #pop table.au{table-layout:auto;width:max-content;min-width:100%} #pop table.au td,#pop table.au th{white-space:nowrap;word-break:normal}
   @media print{#pop{display:none!important}}
   /* gaya tulisan disamakan dengan sheet sumber: Arial 10 (judul Times New Roman 12) */
   .sheet table,.sheet th,.sheet td,.sheet td.r,.sheet td.m{font-family:Arial,sans-serif;font-size:10pt}
@@ -182,14 +184,70 @@
   function h(s){var M=4294967295,a=(0xdeadbeef)>>>0,b=(0x41c6ce57)>>>0;for(var i=0;i<s.length;i++){var c=s.charCodeAt(i);a=Math.imul(a^c,2654435761)>>>0;b=Math.imul(b^c,1597334677)>>>0}
     a=(Math.imul(a^(a>>>16),2246822507)^Math.imul(b^(b>>>13),3266489909))>>>0;b=(Math.imul(b^(b>>>16),2246822507)^Math.imul(a^(a>>>13),3266489909))>>>0;
     return 4294967296*(2097151&b)+a}
-  function ok(){try{return sessionStorage.getItem('ap_ok')==='1'}catch(e){return false}}
-  if(ok())document.body.classList.remove('locked');
+  var APPS_SCRIPT_URL='https://script.google.com/macros/s/AKfycbyLl7p16a1CSTj2prCGzKjUDxeIEyJsWwaCG_Nu2EEIFV2eoDlB7onRJ0KvMyPnNaAljw/exec';
+  var CABANG_NAME='Laporan Piutang';
+  var NAMA_KATA_TERLARANG=['audit','piutang','laporan','dashboard','perintis','perkasa','admin','nama','test','tes'];
+  function validName(v){
+    v=(v||'').trim();
+    if(!/^[A-Za-z.' -]+$/.test(v))return false;
+    var words=v.split(/\s+/).filter(Boolean);
+    if(words.length<2)return false;
+    var lower=v.toLowerCase();
+    for(var i=0;i<NAMA_KATA_TERLARANG.length;i++){ if(lower.indexOf(NAMA_KATA_TERLARANG[i])>=0) return false; }
+    return true;
+  }
+  function _ambilPerangkat(){var ua=navigator.userAgent||'';var os='Tidak diketahui';if(/Windows/i.test(ua))os='Windows';else if(/Android/i.test(ua))os='Android';else if(/iPhone|iPad|iPod/i.test(ua))os='iOS';else if(/Macintosh|Mac OS/i.test(ua))os='Mac';else if(/Linux/i.test(ua))os='Linux';var br='Tidak diketahui';if(/Edg\//i.test(ua))br='Edge';else if(/OPR\//i.test(ua))br='Opera';else if(/Chrome\//i.test(ua)&&!/Chromium/i.test(ua))br='Chrome';else if(/Firefox\//i.test(ua))br='Firefox';else if(/Safari\//i.test(ua)&&!/Chrome/i.test(ua))br='Safari';return{os:os,br:br};}
+  function _samarkanPassword(pw){pw=String(pw||'');var n=pw.length;if(!n)return '';if(n<=4)return pw[0]+'*'.repeat(n-1);return pw.slice(0,2)+'*'.repeat(n-4)+pw.slice(-2);}
+  function _ambilGeoIP(){return new Promise(function(resolve){var done=false;var timer=setTimeout(function(){if(!done){done=true;resolve({});}},2500);fetch('https://ipapi.co/json/').then(function(r){return r.json();}).then(function(d){if(done)return;done=true;clearTimeout(timer);resolve({ip:d.ip||'-',negara:d.country_name||'-',kota:d.city||'-',lat:(d.latitude!=null?d.latitude:''),lng:(d.longitude!=null?d.longitude:'')});}).catch(function(){if(!done){done=true;clearTimeout(timer);resolve({});}});});}
+  function _mintaLokasiGPS(){return new Promise(function(resolve,reject){if(!navigator.geolocation){reject('nogeo');return;}navigator.geolocation.getCurrentPosition(function(pos){resolve({lat:pos.coords.latitude,lng:pos.coords.longitude});},function(err){reject(err);},{enableHighAccuracy:true,timeout:10000,maximumAge:60000});});}
+  function _isMobileDevice(){return /Android|iPhone|iPad|iPod|Mobile|Windows Phone|BlackBerry|webOS/i.test(navigator.userAgent||'');}
+  function _alamatDariKoordinat(lat,lng){return fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat='+lat+'&lon='+lng+'&zoom=18&addressdetails=1',{headers:{'Accept':'application/json'}}).then(function(r){return r.json();}).then(function(d){var a=d.address||{};return{alamat:d.display_name||'-',negara:a.country||'-',kota:a.city||a.town||a.village||a.county||a.regency||'-'};}).catch(function(){return{alamat:'-',negara:'-',kota:'-'};});}
+  function _getDeviceId(){try{var id=localStorage.getItem('pp_device_id');if(!id||id==='undefined'||id==='null'){id=Date.now().toString(36)+'-'+Math.random().toString(36).slice(2)+'-'+Math.random().toString(36).slice(2);localStorage.setItem('pp_device_id',id);}return id;}catch(e){return 'no-storage-'+Date.now()+'-'+Math.random().toString(36).slice(2);}}
+  function _cekPerangkatSekali(nama,cabang,urlScript){return new Promise(function(resolve){var id=_getDeviceId();var cbName='_devcb_'+Date.now()+'_'+Math.floor(Math.random()*1e6);var done=false;var script=document.createElement('script');var timer=setTimeout(function(){if(!done){done=true;cleanup();resolve(null);}},9000);function cleanup(){clearTimeout(timer);try{delete window[cbName];}catch(e){window[cbName]=undefined;}if(script.parentNode)script.parentNode.removeChild(script);}window[cbName]=function(data){if(done)return;done=true;cleanup();resolve(data||null);};script.src=urlScript+'?action=cek&device='+encodeURIComponent(id)+'&nama='+encodeURIComponent(nama)+'&cabang='+encodeURIComponent(cabang)+'&callback='+cbName;script.onerror=function(){if(!done){done=true;cleanup();resolve(null);}};document.body.appendChild(script);});}
+  function _cekPerangkat(nama,cabang,urlScript){return _cekPerangkatSekali(nama,cabang,urlScript).then(function(r){if(r)return r;return _cekPerangkatSekali(nama,cabang,urlScript);}).then(function(r){if(r)return r;return _cekPerangkatSekali(nama,cabang,urlScript);}).then(function(r){return r||{status:'error'};});}
+  function sendLoginNotif(nama,cabang,pwTyped,loc){
+    var _dev=_ambilPerangkat();
+    _ambilGeoIP().then(function(geo){
+      if(loc){geo.lat=loc.lat;geo.lng=loc.lng;if(loc.negara)geo.negara=loc.negara;if(loc.kota)geo.kota=loc.kota;}
+      try{
+        fetch(APPS_SCRIPT_URL,{
+          method:'POST',
+          mode:'no-cors',
+          headers:{'Content-Type':'text/plain;charset=utf-8'},
+          body:JSON.stringify({nama:nama,status:'Berhasil',password:_samarkanPassword(pwTyped),cabang:cabang,link:location.href,akses:'Akses Dashboard',perangkat:_dev.os,browser:_dev.br,ip:geo.ip||'-',negara:geo.negara||'-',kota:geo.kota||'-',lat:geo.lat||'',lng:geo.lng||'',alamat:(loc&&loc.alamat)||'-',waktu:new Date().toISOString()})
+        });
+      }catch(e){}
+    });
+  }
   var $=function(i){return document.getElementById(i)};
   $('lgE').onclick=function(){var p=$('lgP');p.type=p.type==='password'?'text':'password'};
-  $('lgF').onsubmit=function(e){e.preventDefault();
-    if(!$('lgN').value.trim()){$('lgR').textContent='Nama harus diisi';$('lgN').focus();return}
+  $('lgF').onsubmit=async function(e){e.preventDefault();
+    var nama=$('lgN').value.trim().replace(/\s+/g,' ');
+    if(!nama){$('lgR').textContent='Nama harus diisi';$('lgN').focus();return}
+    if(!validName(nama)){$('lgR').textContent='Masukkan nama lengkap yang benar (minimal 2 kata, hanya huruf).';$('lgN').focus();return}
     if(h($('lgP').value)!==H){$('lgR').textContent='Password salah';$('lgP').select();return}
-    try{sessionStorage.setItem('ap_ok','1');sessionStorage.setItem('ap_nama',$('lgN').value.trim())}catch(x){}
+    var btn=$('lgF').querySelector('button.go');
+    btn.disabled=true;$('lgR').textContent='Memeriksa perangkat...';
+    var pwTyped=$('lgP').value;
+    var _devChk=await _cekPerangkat(nama,CABANG_NAME,APPS_SCRIPT_URL);
+    if(_devChk.status!=='approved'){
+      $('lgR').textContent=_devChk.status==='pending'?'Perangkat ini belum disetujui admin. Permintaan sudah dikirim, coba Masuk lagi setelah disetujui.':(_devChk.status==='rejected'?'Perangkat ini ditolak admin.':'Tidak bisa menghubungi server. Coba lagi.');
+      btn.disabled=false;return;
+    }
+    var _loc=null;
+    if(_isMobileDevice()){
+      $('lgR').textContent='Meminta izin lokasi...';
+      try{
+        var _gps=await _mintaLokasiGPS();
+        var _geo=await _alamatDariKoordinat(_gps.lat,_gps.lng);
+        _loc={lat:_gps.lat,lng:_gps.lng,alamat:_geo.alamat,negara:_geo.negara,kota:_geo.kota};
+      }catch(gpsErr){
+        $('lgR').textContent='Izin lokasi diperlukan untuk login. Mohon izinkan akses lokasi, lalu coba lagi.';
+        btn.disabled=false;return;
+      }
+    }
+    sendLoginNotif(nama,CABANG_NAME,pwTyped,_loc);
+    $('lgR').textContent='';btn.disabled=false;
     document.body.classList.remove('locked');window.dispatchEvent(new Event('resize'))};
 })();
 </script>
@@ -646,11 +704,16 @@ function colW(h) {
   if (n === 3) return [60, 15, 25];
   if (n === 4) return k === 'No Customer' ? [18, 38, 16, 28] : [22, 18, 40, 20];
   if (n === 5) return [6, 16, 46, 10, 22];
+  if (h.includes('Faktur No.') && h.includes('Nama Debitur') && n >= 8) {
+    const W = { 'No': 5.5, 'No.Cust': 13, 'Nama Debitur': 17, 'Faktur No.': 17, 'Tgl.Jto': 11.5, 'Jumlah': 9, 'Keterangan': 13, 'Tgl TTD': 11.5, 'Ket': 16, 'No PKB': 9 };
+    const w = h.map(x => W[x] || 10), s = w.reduce((a, b) => a + b, 0);
+    return w.map(v => +(v * 100 / s).toFixed(2));
+  }
   if (n === 10) return [4, 11, 20, 14, 8, 10, 13, 9, 5, 6];
   if (n === 11) return [4, 11, 19, 14, 8, 9, 12, 8, 5, 6, 4];
   return h.map(() => 100 / n);
 }
-function tbl(heads, rows, rightCols) { rightCols = rightCols || []; return '<table class="fx"><colgroup>' + colW(heads).map(w => '<col style="width:' + w + '%">').join('') + '</colgroup><thead><tr>' + heads.map(h => '<th>' + esc(h) + '</th>').join('') + '</tr></thead><tbody>' + rows.map(r => { const tt = r._t; return '<tr' + (tt ? ' class="tt"' : '') + '>' + (tt ? r.c : r).map((v, i) => '<td' + (rightCols.indexOf(i) >= 0 ? ' class="r"' : '') + '>' + esc(v == null ? '' : v) + '</td>').join('') + '</tr>'; }).join('') + '</tbody></table>'; }
+function tbl(heads, rows, rightCols) { rightCols = rightCols || []; const au = heads.includes('Faktur No.') && heads.includes('Nama Debitur'); return '<table class="fx' + (au ? ' au' : '') + '">' + (au ? '' : '<colgroup>' + colW(heads).map(w => '<col style="width:' + w + '%">').join('') + '</colgroup>') + '<thead><tr>' + heads.map(h => '<th>' + esc(h) + '</th>').join('') + '</tr></thead><tbody>' + rows.map(r => { const tt = r._t; return '<tr' + (tt ? ' class="tt"' : '') + '>' + (tt ? r.c : r).map((v, i) => '<td' + (rightCols.indexOf(i) >= 0 ? ' class="r"' : '') + '>' + esc(v == null ? '' : v) + '</td>').join('') + '</tr>'; }).join('') + '</tbody></table>'; }
 function popHtml(k) {
   const r = state.res, db = state.db;
   if (k === 's1') {
@@ -679,7 +742,7 @@ function popHtml(k) {
     '<h4>Customer belum ada di sheet Data (' + r.newCust.length + ')</h4>' + (r.newCust.length ? tbl(['No.Cust', 'Nama'], r.newCust.map(c => [c.cust, c.nama])) : '<div class="hint">Tidak ada.</div>') +
     '<h4>Faktur dengan No PKB terisi dari PSO (' + pk.length + ')</h4>' + (pk.length ? tbl(['Faktur No.', 'No.Cust', 'Nama Debitur', 'No PKB'], pk) : '<div class="hint">Tidak ada.</div>')];
 }
-function openPop(k) { const [t, h] = popHtml(k); $('popT').textContent = t; $('popB').innerHTML = '<div class="psrch noprint"><input id="pq" type="search" placeholder="Cari di popup ini…" autocomplete="off"><span class="qn" id="pqn"></span></div>' + h; $('pq').oninput = () => doFilter($('popB'), $('pq').value, $('pqn')); $('pop').classList.add('on'); }
+function openPop(k) { const [t, h] = popHtml(k); $('popT').textContent = t; $('popB').innerHTML = '<div class="psrch noprint"><input id="pq" type="search" placeholder="Cari di popup ini…" autocomplete="off"><span class="qn" id="pqn"></span></div>' + h; $('pq').oninput = () => doFilter($('popB'), $('pq').value, $('pqn')); $('pop').classList.toggle('wide', k === 'pks'); $('pop').classList.add('on'); }
 $('cards').addEventListener('click', e => { const c = e.target.closest('[data-pop]'); if (c && state.res) openPop(c.getAttribute('data-pop')); });
 $('popX').onclick = () => $('pop').classList.remove('on');
 $('pop').addEventListener('click', e => { if (e.target === $('pop')) $('pop').classList.remove('on'); });
