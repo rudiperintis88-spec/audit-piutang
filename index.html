@@ -251,7 +251,7 @@
     }
     const total1 = s1.reduce((a, r) => a + r.jumlah, 0);
 
-    const KB = /kurang\s*bayar|kekurangan\s*bayar/i;
+    const KB = /kurang(an)?\s*(bayar|pembayaran)/i;
     const pks = s1.filter(r => pksLabels.has(r.cabang) || (opts.kurangAsuransi && r.cabang === 'ASURANSI' && KB.test((prevPks[r.faktur] || {}).ket || ''))).map((r, i) => {
       const m = (manual && manual[r.faktur]) || {}, p = prevPks[r.faktur] || {};
       const ket = 'ket' in m ? m.ket : (p.ket || '');
@@ -297,7 +297,7 @@
       const mn = Math.min(...ds), mx = Math.max(...ds);
       return mn === mx ? 'Tanda Terima ' + fmtDate(mn) : 'Tanda Terima (' + fmtDate(mn) + ' & ' + fmtDate(mx) + ')';
     }
-    if (/^\(?\s*Lunas/i.test(first.ket) || /PSO|kurang\s*bayar|kekurangan\s*bayar/i.test(first.ket)) return first.ket;
+    if (/^\(?\s*Lunas/i.test(first.ket) || /PSO|kurang(an)?\s*(bayar|pembayaran)/i.test(first.ket)) return first.ket;
     return '';
   }
 
@@ -308,7 +308,7 @@
       const f = S(r[4]);
       if (!f || !S(r[1]) || f === 'Faktur No.') continue;
       const cab = S(r[14]) || S(r[13]);
-      const k = S(r[11]), ok = /^(lunas|tanda\s*terima)|pso|kurang\s*bayar|kekurangan\s*bayar/i.test(k);
+      const k = S(r[11]), ok = /^(lunas|tanda\s*terima)|pso|kurang(an)?\s*(bayar|pembayaran)/i.test(k);
       o[f] = { ket: ok ? k : '', tgl: r[12] == null ? '' : r[12], cabang: cab };
     }
     return o;
