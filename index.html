@@ -115,12 +115,9 @@
   <div id="msg"></div>
   <div id="pop"><div class="box"><div class="hd"><h3 id="popT"></h3><button class="x" id="popX">&times;</button></div><div class="bd" id="popB"></div></div></div>
   <div class="grid" id="cards"></div>
-  <details class="panel noprint"><summary>Pengaturan: sumber spreadsheet, judul opname, cabang</summary>
-    <label for="srcUrl" style="margin-top:10px">Link spreadsheet Google (isi sekali, tersimpan di browser)</label>
-    <input type="text" id="srcUrl" placeholder="https://docs.google.com/spreadsheets/d/.../edit">
-    <label for="srcKey" style="margin-top:10px">API key Google Sheets (isi sekali, tersimpan di browser)</label>
-    <input type="text" id="srcKey" placeholder="AIza...">
-    <div class="hint" id="srcStat">Belum terhubung. Isi link spreadsheet dan API key, lalu klik Menyinkronkan.</div>
+  <details class="panel noprint"><summary>Pengaturan: judul opname, cabang</summary>
+    <input type="hidden" id="srcUrl"><input type="hidden" id="srcKey">
+    <div class="hint" id="srcStat">Belum terhubung. Klik Menyinkronkan untuk mengambil data dari spreadsheet.</div>
     <label for="opTitle" style="margin-top:14px">Judul opname (tampil di baris 4 Sheet1 &amp; PKS &amp; Customer)</label>
     <input type="text" id="opTitle">
     <details style="margin-top:10px"><summary>Pengaturan: Cabang yang masuk &quot;PKS &amp; Customer&quot;</summary>
@@ -589,11 +586,12 @@ $('bPdf').onclick = () => {
 };
 
 /* ---------- baca langsung dari Google Sheets (tanpa Apps Script) ---------- */
+const SHEET_LINK = 'https://docs.google.com/spreadsheets/d/1s68YwlCmETw-B-Zyc6Vp6d5Zy-azbCOn0fnpB6tKmHY/edit';
+const API_KEY = '';   // isi API key Google Sheets di sini
 async function loadSheets(link, key) {
-  if (/script\.google\.com/.test(link)) { const res = await fetch(link, { redirect: 'follow' }); if (!res.ok) throw new Error('HTTP ' + res.status); return await res.json(); }
   const m = link.match(/\/d\/([a-zA-Z0-9_-]+)/) || link.match(/^([a-zA-Z0-9_-]{20,})$/);
   if (!m) throw new Error('Link spreadsheet tidak dikenali');
-  if (!key) throw new Error('API key belum diisi');
+  if (!key) throw new Error('API key belum dipasang di HTML');
   const base = 'https://sheets.googleapis.com/v4/spreadsheets/' + m[1] + '/values/';
   const q = '?valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=SERIAL_NUMBER&key=' + encodeURIComponent(key);
   const get = async (name, must) => {
@@ -634,18 +632,18 @@ async function pull(auto) {
     $('srcStat').textContent = 'Terhubung. Diambil ' + new Date().toLocaleString('id-ID') + ': Database ' + state.db.rows.length + ' baris, Data ' + state.data.length + ', PSO ' + state.pso.length + ', PKS & Customer sebelumnya ' + Object.keys(state.prevPks).length + ', Data Sebelumnya ' + (state.rawPrev ? state.rawPrev.length : 0) + ' baris, Pribadi sebelumnya ' + Object.keys(state.prevPri).length + ' catatan. Terisi dari data sebelumnya: ' + r.nPrevKet + ' keterangan/tgl TTD, ' + r.nCabPrev + ' cabang. No PKB terisi: ' + r.nPkb + ' baris.';
   } catch (e) {
     $('dot').className = 'dot err'; $('liveTxt').textContent = 'Gagal tersinkron'; $('liveSub').textContent = '· menampilkan data sebelumnya';
-    $('srcStat').textContent = 'Gagal mengambil data: ' + e.message + '. Periksa link dan API key, pastikan spreadsheet dibagikan "Siapa saja yang memiliki link: Pelihat", dan komputer sedang online. Data yang tampil masih data sebelumnya.';
+    $('srcStat').textContent = 'Gagal mengambil data: ' + e.message + '. Periksa API key, pastikan spreadsheet dibagikan "Siapa saja yang memiliki link: Pelihat", dan komputer sedang online. Data yang tampil masih data sebelumnya.';
   }
   $('bPull').classList.remove('busy');
 }
 $('bPull').onclick = () => pull(false);
-$('srcUrl').value = lsGet('pl_url', '') || 'https://docs.google.com/spreadsheets/d/1s68YwlCmETw-B-Zyc6Vp6d5Zy-azbCOn0fnpB6tKmHY/edit';
-$('srcKey').value = lsGet('pl_key', '');
+$('srcUrl').value = SHEET_LINK;
+$('srcKey').value = API_KEY;
 recompute();
-if ($('srcUrl').value && ($('srcKey').value || /script\.google/.test($('srcUrl').value))) pull(true);
+if ($('srcUrl').value && $('srcKey').value) pull(true);
 setInterval(() => {
   const a = document.activeElement;
-  if (!$('srcUrl').value || (!$('srcKey').value && !/script\.google/.test($('srcUrl').value)) || (a && a.closest && a.closest('td.in'))) return;   // jangan ganggu saat mengetik
+  if (!$('srcUrl').value || !$('srcKey').value || (a && a.closest && a.closest('td.in'))) return;   // jangan ganggu saat mengetik
   pull(true);
 }, 120000);
 </script>
