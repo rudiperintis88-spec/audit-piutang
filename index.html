@@ -93,6 +93,11 @@
   #pop .x{border:0;background:#eef0f4;border-radius:50%;width:34px;height:34px;font-size:18px;cursor:pointer} #pop .bd{padding:16px 24px 24px;overflow:auto}
   #pop table{border-collapse:collapse;width:100%;font-size:12.5px} #pop th,#pop td{border:1px solid #d9dde5;padding:5px 8px;text-align:left} #pop th{background:#eef0f4;position:sticky;top:0} #pop td.r{text-align:right;font-variant-numeric:tabular-nums} #pop tr.tt td{font-weight:700;background:#f6f7fa} #pop h4{margin:16px 0 6px;font-size:14px}
   @media print{#pop{display:none!important}}
+  /* gaya tulisan disamakan dengan sheet sumber: Arial 10 (judul Times New Roman 12) */
+  .sheet table,.sheet th,.sheet td,.sheet td.r,.sheet td.m{font-family:Arial,sans-serif;font-size:10pt}
+  .sheet th{font-weight:700;color:#222}
+  .sheet .ttl,.sheet .opn{font:400 12pt "Times New Roman",serif;letter-spacing:0;color:#000;margin:2px 0 4px}
+  .sheet tr.sec td{font:700 10pt Arial,sans-serif}
 </style>
 </head>
 <body>
@@ -552,16 +557,17 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') $('pop').cla
 /* ---------- export PDF langsung (tanpa dialog cetak) ---------- */
 function makePdf() {
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
   const r = state.res, tab = state.tab, sp = rawSpec(tab);
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: (tab === 's1' || tab === 'pks') ? 'a3' : 'a4' });
   let name, head, body = [], colStyles = {}, lines = [], widths = null;
   if (tab === 's1' || tab === 'pks') {
     const isP = tab === 'pks', rows = isP ? r.pks : r.s1;
     name = isP ? 'PKS & Customer' : 'Sheet1'; lines = ['BERITA ACARA', state.title]; const hp = r.nPkb > 0; head = [hp ? COLS : COLS.slice(0, -1)];
     body = rows.map(x => [isP ? x.n : x.no, x.cust, x.nama, x.plat, x.faktur, x.top, PL.fmtDate(x.jto), fmt(x.jumlah), x.giro, x.sa, x.namaSA, isP ? x.ket : '', isP && x.tgl ? PL.fmtDate(x.tgl) : '', x.cab, x.cabang, ...(hp ? [x.pkb] : [])]);
     body.push([{ content: 'Total:', colSpan: 7, styles: { fontStyle: 'bold' } }, { content: fmt(isP ? r.totalPks : r.total1), styles: { fontStyle: 'bold', halign: 'right' } }, { content: '', colSpan: hp ? 8 : 7 }]);
-    const w = hp ? [22, 52, 96, 50, 78, 14, 42, 48, 18, 44, 68, 52, 42, 48, 66, 66] : [24, 56, 110, 56, 88, 16, 46, 54, 20, 50, 76, 70, 48, 56, 80];
-    w.forEach((v, i) => colStyles[i] = { cellWidth: v });
+    const w = hp ? [22, 52, 96, 50, 78, 20, 42, 48, 18, 44, 68, 52, 42, 48, 66, 66] : [24, 56, 110, 56, 88, 22, 46, 54, 20, 50, 76, 70, 48, 56, 80];
+    const sc = (doc.internal.pageSize.getWidth() - 40) / w.reduce((a, b) => a + b, 0);
+    w.forEach((v, i) => colStyles[i] = { cellWidth: v * sc });
     Object.assign(colStyles[0], { halign: 'center' }); Object.assign(colStyles[5], { halign: 'center' }); Object.assign(colStyles[6], { halign: 'center' }); Object.assign(colStyles[7], { halign: 'right' });
   } else if (tab === 'pri') {
     name = 'Piutang Customer Pribadi'; lines = ['Piutang Customer Pribadi', state.title]; head = [['No Customer', 'Nama Customer', 'Nilai', 'Giro', 'Keterangan']];
@@ -579,11 +585,11 @@ function makePdf() {
   }
   const W = doc.internal.pageSize.getWidth();
   let y = 30;
-  doc.setFont('times', 'bold'); doc.setFontSize(15); doc.text(lines[0], W / 2, y, { align: 'center' });
-  if (lines[1]) { y += 16; doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text(String(lines[1]), 20, y, { align: 'left' }); }
+  doc.setFont('times', 'normal'); doc.setFontSize(12); doc.text(lines[0], W / 2, y, { align: 'center' });
+  if (lines[1]) { y += 16; doc.setFont('times', 'normal'); doc.setFontSize(12); doc.text(String(lines[1]), 20, y, { align: 'left' }); }
   const opt = {
     head, body, startY: y + 10, theme: 'grid', margin: { left: 20, right: 20, top: 28, bottom: 26 },
-    styles: { fontSize: 6.5, cellPadding: 2, lineColor: [170, 170, 170], lineWidth: 0.3, overflow: 'linebreak', textColor: 25 },
+    styles: { font: 'helvetica', fontSize: 10, cellPadding: 2.5, lineColor: [170, 170, 170], lineWidth: 0.3, overflow: 'linebreak', textColor: 25 },
     headStyles: { fillColor: [223, 227, 234], textColor: 20, fontStyle: 'bold', halign: 'center' },
     columnStyles: colStyles,
     didDrawPage: d => { doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(110); doc.text('Hal. ' + d.pageNumber, W - 20, doc.internal.pageSize.getHeight() - 12, { align: 'right' }); doc.setTextColor(0); }
