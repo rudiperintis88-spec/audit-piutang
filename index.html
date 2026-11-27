@@ -133,15 +133,7 @@
   <div id="msg"></div>
   <div id="pop"><div class="box"><div class="hd"><h3 id="popT"></h3><span class="pbt"><button id="popPdf" class="primary">Export PDF</button><button id="popXls" class="primary">Export Excel</button><button class="x" id="popX">&times;</button></span></div><div class="bd" id="popB"></div></div></div>
   <div class="grid" id="cards"></div>
-  <details class="panel noprint"><summary>Pengaturan: judul opname, cabang</summary>
-    <div class="hint" id="srcStat">Belum terhubung. Klik Refresh untuk mengambil data dari spreadsheet.</div>
-    <label for="opTitle" style="margin-top:14px">Judul opname (tampil di baris 4 Sheet1 &amp; PKS &amp; Customer)</label>
-    <input type="text" id="opTitle">
-    <details style="margin-top:10px"><summary>Pengaturan: Cabang yang masuk &quot;PKS &amp; Customer&quot;</summary>
-      <div class="opts" id="opts" style="margin-top:6px"></div>
-      <div class="hint">Nilai Cabang berasal dari kolom Ket di sheet Data. Customer yang tidak ada di Data otomatis berlabel CUSTOMER.</div>
-    </details>
-  </details>
+  <div class="hint noprint" id="srcStat">Belum terhubung. Klik Refresh untuk mengambil data dari spreadsheet.</div>
   <div class="tabs noprint" id="tabs">
     <div class="tab" data-t="data">Data</div>
     <div class="tab" data-t="db">Database</div>
@@ -259,7 +251,8 @@
     }
     const total1 = s1.reduce((a, r) => a + r.jumlah, 0);
 
-    const pks = s1.filter(r => pksLabels.has(r.cabang)).map((r, i) => {
+    const KB = /kurang\s*bayar|kekurangan\s*bayar/i;
+    const pks = s1.filter(r => pksLabels.has(r.cabang) || (opts.kurangAsuransi && r.cabang === 'ASURANSI' && KB.test((prevPks[r.faktur] || {}).ket || ''))).map((r, i) => {
       const m = (manual && manual[r.faktur]) || {}, p = prevPks[r.faktur] || {};
       const ket = 'ket' in m ? m.ket : (p.ket || '');
       const tg = 'tgl' in m ? m.tgl : (p.tgl || '');
@@ -343,9 +336,9 @@ function lsGet(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.
 function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
 
 const BRANCHES = [
-  { k: 'am', name: 'Adam Malik', judul: 'H. Adam Malik', pso: true, pub: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTxlYmeVaC3QewARe-3IMRyKdyZCA5rCHp7SY8_nCL2dO42yzy2pBKmx6n7HB6bwPCb2A6jzgqLqQ70/pub?output=csv' },
-  { k: 'gf', name: 'GR Flamboyan', judul: 'GR Flamboyan', pso: false, pub: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRNR0gRBBml7K5wy868V8Dh76KJdLE-ojJJizR0qrV_iTLsZ-SkWKUqsUtcTvs-DQkP4LgMA8AtSCXD/pub?output=csv' },
-  { k: 'br', name: 'Body Repair', judul: 'Body Repair Flamboyan', pso: false, pub: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSUiOFt6aU6tYJzuSBtpJqb7pAzSRtdcFVJXcgkmKCoj9ib3RjIUZaSov5_Wuqb3sRvqvG5T79hrLK1/pub?output=csv' }
+  { k: 'am', name: 'Adam Malik', judul: 'H. Adam Malik', pso: true, labels: ['CUSTOMER', 'CUSTOMER (LUNAS VIA PSO)', 'PKS (PERJANJIAN KERJA SAMA)'], pub: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTxlYmeVaC3QewARe-3IMRyKdyZCA5rCHp7SY8_nCL2dO42yzy2pBKmx6n7HB6bwPCb2A6jzgqLqQ70/pub?output=csv' },
+  { k: 'gf', name: 'GR Flamboyan', judul: 'GR Flamboyan', pso: false, labels: ['CUSTOMER'], pub: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRNR0gRBBml7K5wy868V8Dh76KJdLE-ojJJizR0qrV_iTLsZ-SkWKUqsUtcTvs-DQkP4LgMA8AtSCXD/pub?output=csv' },
+  { k: 'br', name: 'Body Repair', judul: 'Body Repair Flamboyan', pso: false, labels: ['CUSTOMER', 'PERINTIS GROUP', 'TAM'], kurang: true, pub: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSUiOFt6aU6tYJzuSBtpJqb7pAzSRtdcFVJXcgkmKCoj9ib3RjIUZaSov5_Wuqb3sRvqvG5T79hrLK1/pub?output=csv' }
 ];
 const HEAD0 = ['No.Cust', 'Nama Debitur', 'Ket', 'Cabang', '', 'S A', 'Nama SA'];
 const B = {
@@ -362,7 +355,6 @@ let state = {
   manual: {},
   prevPks: lsGet('pl_prev2', {}),
   prevPri: {},
-  labels: lsGet('pl_labels', PL.PKS_LABELS_DEFAULT),
   title: null, tab: 's1', res: null, db: null, src: 'Laporan Piutang', rawPrev: null,
   _init: 1
 };
@@ -388,13 +380,12 @@ function useBranch(k, keepTitle) {
 $('branches').addEventListener('click', e => { const b = e.target.closest('.brn'); if (b && b.dataset.b !== cur) useBranch(b.dataset.b); });
 function recompute() {
   state.db = PL.parseDatabase(state.dbRows);
-  state.res = PL.build(state.db, state.data, state.pso, state.manual, { pksLabels: state.labels, prevPks: state.prevPks, prevPri: state.prevPri });
+  state.res = PL.build(state.db, state.data, state.pso, state.manual, { pksLabels: curB().labels, kurangAsuransi: !!curB().kurang, prevPks: state.prevPks, prevPri: state.prevPri });
   if (state.title == null) {
     const d = state.db.asOf ? PL.fmtDateLong(state.db.asOf) : '';
     state.title = 'Opname Piutang di PT. Perintis Perkasa (' + cabangNama() + ')' + (d ? ' Per ' + d : '');
   }
-  $('opTitle').value = state.title;
-  renderTop(); renderOpts(); renderSheet();
+  renderTop(); renderSheet();
 }
 
 function renderTop() {
@@ -423,14 +414,6 @@ function renderTop() {
     <div data-pop="item" class="card ${nIssue ? 'red' : 'grn'}"><div class="lb"><i></i>Perlu dilengkapi di Data</div><div class="val">${nIssue} item</div><div class="sb">${r.newCust.length} customer baru &middot; ${r.missSA.length} SA baru &middot; No PKB terisi ${r.nPkb} baris</div></div>`;
   $('per').textContent = 'Per : ' + (db.asOf ? PL.fmtDateLong(db.asOf) : '-');
   $('srcLine').textContent = 'Sumber: ' + state.src;
-}
-
-function renderOpts() {
-  $('opts').innerHTML = state.res.labels.map(l => `<label><input type="checkbox" data-l="${esc(l)}" ${state.labels.includes(l) ? 'checked' : ''}>${esc(l)}</label>`).join('');
-  $('opts').querySelectorAll('input').forEach(cb => cb.onchange = () => {
-    const ls = [...$('opts').querySelectorAll('input:checked')].map(x => x.dataset.l);
-    state.labels = ls; lsSet('pl_labels', ls); recompute();
-  });
 }
 
 function head(t) { return `<div class="ttl">BERITA ACARA</div><div class="opn">${esc(state.title)}</div>`; }
@@ -491,8 +474,6 @@ function renderSheet() {
   $('sheet').innerHTML = h;
 }
 
-$('opTitle').oninput = e => { state.title = e.target.value; };
-$('opTitle').onchange = () => renderSheet();
 $('tabs').onclick = e => {
   const t = e.target.closest('.tab'); if (!t) return;
   state.tab = t.dataset.t;
