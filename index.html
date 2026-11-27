@@ -116,7 +116,6 @@
   <div id="pop"><div class="box"><div class="hd"><h3 id="popT"></h3><button class="x" id="popX">&times;</button></div><div class="bd" id="popB"></div></div></div>
   <div class="grid" id="cards"></div>
   <details class="panel noprint"><summary>Pengaturan: judul opname, cabang</summary>
-    <input type="hidden" id="srcUrl"><input type="hidden" id="srcKey">
     <div class="hint" id="srcStat">Belum terhubung. Klik Menyinkronkan untuk mengambil data dari spreadsheet.</div>
     <label for="opTitle" style="margin-top:14px">Judul opname (tampil di baris 4 Sheet1 &amp; PKS &amp; Customer)</label>
     <input type="text" id="opTitle">
@@ -586,32 +585,41 @@ $('bPdf').onclick = () => {
 };
 
 /* ---------- baca langsung dari Google Sheets (tanpa Apps Script) ---------- */
-const SHEET_LINK = 'https://docs.google.com/spreadsheets/d/1s68YwlCmETw-B-Zyc6Vp6d5Zy-azbCOn0fnpB6tKmHY/edit';
-const API_KEY = '';   // isi API key Google Sheets di sini
-async function loadSheets(link, key) {
-  const m = link.match(/\/d\/([a-zA-Z0-9_-]+)/) || link.match(/^([a-zA-Z0-9_-]{20,})$/);
-  if (!m) throw new Error('Link spreadsheet tidak dikenali');
-  if (!key) throw new Error('API key belum dipasang di HTML');
-  const base = 'https://sheets.googleapis.com/v4/spreadsheets/' + m[1] + '/values/';
-  const q = '?valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=SERIAL_NUMBER&key=' + encodeURIComponent(key);
-  const get = async (name, must) => {
-    const res = await fetch(base + encodeURIComponent(name) + q);
-    if (!res.ok) { if (must) { let msg = 'HTTP ' + res.status; try { const e = await res.json(); msg += ' ' + (e.error && e.error.message || ''); } catch (_) { } throw new Error('Sheet "' + name + '": ' + msg); } return null; }
-    return (await res.json()).values || [];
-  };
-  const dt = rows => rows && rows.map(r => r.map((v, i) => (typeof v === 'number' && (i === 6 || i === 12) && v > 30000 && v < 80000) ? PL.fmtDate(Math.floor(v)) : v));
-  const [Database, Data, PSO, Sebelumnya] = await Promise.all([get('Database', true), get('Data', true), get('PSO_Part Belum Ambil', false), get('Data Sebelumnya', false)]);
-  return { Database, Data, PSO, Sebelumnya: dt(Sebelumnya) };
+const PUB_LINK = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTxlYmeVaC3QewARe-3IMRyKdyZCA5rCHp7SY8_nCL2dO42yzy2pBKmx6n7HB6bwPCb2A6jzgqLqQ70/pub?output=csv';   // link "Publikasikan ke web" spreadsheet (boleh dikosongkan; akan ditanyakan sekali)
+const GIDS = { Data: 0, Sebelumnya: 221598919, Database: 221115748, PSO: 1711111175 };
+function parseCsv(s) {
+  const rows = []; let row = [], f = '', q = false;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (q) { if (c === '"') { if (s[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += c; }
+    else if (c === '"') q = true;
+    else if (c === ',') { row.push(f); f = ''; }
+    else if (c === '\n') { row.push(f); rows.push(row); row = []; f = ''; }
+    else if (c !== '\r') f += c;
+  }
+  if (f !== '' || row.length) { row.push(f); rows.push(row); }
+  return rows.filter(r => r.some(x => String(x).trim() !== ''));
 }
-
+async function loadSheets(link) {
+  const m = link.match(/\/d\/e\/([a-zA-Z0-9_-]+)/);
+  if (!m) throw new Error('Link publikasi tidak dikenali (harus berbentuk https://docs.google.com/spreadsheets/d/e/2PACX-.../pub...)');
+  const get = async (key, must) => {
+    const res = await fetch('https://docs.google.com/spreadsheets/d/e/' + m[1] + '/pub?gid=' + GIDS[key] + '&single=true&output=csv&t=' + Date.now());
+    if (!res.ok) { if (must) throw new Error('Sheet ' + key + ': HTTP ' + res.status); return null; }
+    return parseCsv(await res.text());
+  };
+  const [Database, Data, PSO, Sebelumnya] = await Promise.all([get('Database', true), get('Data', true), get('PSO', false).catch(() => null), get('Sebelumnya', false).catch(() => null)]);
+  return { Database, Data, PSO, Sebelumnya };
+}
 async function pull(auto) {
-  const url = $('srcUrl').value.trim();
-  if (!url) { if (!auto) $('srcStat').textContent = 'Isi dulu link spreadsheet.'; return; }
-  lsSet('pl_url', url); lsSet('pl_key', $('srcKey').value.trim());
+  let url = PUB_LINK || lsGet('pl_pub', '');
+  if (!url && !auto) { try { url = (window.prompt('Tempel link spreadsheet yang sudah dipublikasikan ke web (Berkas > Bagikan > Publikasikan ke web):') || '').trim(); } catch (_) { } }
+  if (!url) { if (!auto) $('srcStat').textContent = 'Link publikasi spreadsheet belum diisi.'; return; }
+  lsSet('pl_pub', url);
   $('srcStat').textContent = 'Mengambil data dari spreadsheet...';
   $('bPull').classList.add('busy');
   try {
-    const j = await loadSheets(url, $('srcKey').value.trim());
+    const j = await loadSheets(url);
     if (!j.Database || j.Database.length < 3) throw new Error('Sheet Database kosong / tidak terbaca');
     state.dbRows = j.Database;
     if (j.Data && j.Data.length > 1) { state.dataHead = j.Data[0].slice(0, 7).map(x => x == null ? '' : String(x)); state.data = j.Data.slice(1).map(r => r.map(x => x == null ? '' : x)); lsSet('pl_data', state.data); }
@@ -632,18 +640,16 @@ async function pull(auto) {
     $('srcStat').textContent = 'Terhubung. Diambil ' + new Date().toLocaleString('id-ID') + ': Database ' + state.db.rows.length + ' baris, Data ' + state.data.length + ', PSO ' + state.pso.length + ', PKS & Customer sebelumnya ' + Object.keys(state.prevPks).length + ', Data Sebelumnya ' + (state.rawPrev ? state.rawPrev.length : 0) + ' baris, Pribadi sebelumnya ' + Object.keys(state.prevPri).length + ' catatan. Terisi dari data sebelumnya: ' + r.nPrevKet + ' keterangan/tgl TTD, ' + r.nCabPrev + ' cabang. No PKB terisi: ' + r.nPkb + ' baris.';
   } catch (e) {
     $('dot').className = 'dot err'; $('liveTxt').textContent = 'Gagal tersinkron'; $('liveSub').textContent = '· menampilkan data sebelumnya';
-    $('srcStat').textContent = 'Gagal mengambil data: ' + e.message + '. Periksa API key, pastikan spreadsheet dibagikan "Siapa saja yang memiliki link: Pelihat", dan komputer sedang online. Data yang tampil masih data sebelumnya.';
+    $('srcStat').textContent = 'Gagal mengambil data: ' + e.message + '. Pastikan spreadsheet sudah dipublikasikan ke web dan komputer sedang online. Data yang tampil masih data sebelumnya.';
   }
   $('bPull').classList.remove('busy');
 }
 $('bPull').onclick = () => pull(false);
-$('srcUrl').value = SHEET_LINK;
-$('srcKey').value = API_KEY;
 recompute();
-if ($('srcUrl').value && $('srcKey').value) pull(true);
+if (PUB_LINK || lsGet('pl_pub', '')) pull(true);
 setInterval(() => {
   const a = document.activeElement;
-  if (!$('srcUrl').value || !$('srcKey').value || (a && a.closest && a.closest('td.in'))) return;   // jangan ganggu saat mengetik
+  if (!(PUB_LINK || lsGet('pl_pub', '')) || (a && a.closest && a.closest('td.in'))) return;   // jangan ganggu saat mengetik
   pull(true);
 }, 120000);
 </script>
