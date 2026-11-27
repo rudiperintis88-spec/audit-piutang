@@ -15,7 +15,7 @@
   main{padding:26px 32px 40px;max-width:1440px;margin:0 auto}
   .top{display:grid;grid-template-columns:1fr auto;gap:6px 24px;align-items:start;padding-bottom:16px;border-bottom:1px solid var(--line)}
   h1{font:400 34px/1.1 var(--serif);letter-spacing:-.02em;margin:0}
-  .per{color:var(--mut);font-family:var(--mono);font-size:13px;margin-top:10px}
+  .per{color:#3a4254;font-family:var(--sans);font-weight:600;font-size:20px;margin-top:8px}
   .status{display:flex;gap:14px;align-items:center;justify-self:end;flex-wrap:wrap;justify-content:flex-end;color:var(--mut)}
   .status b{color:var(--ink)}
   .dot{display:inline-block;width:12px;height:12px;border-radius:50%;background:#b8bdc8;margin-right:8px;box-shadow:0 0 0 4px #eef0f3;vertical-align:-1px}
@@ -104,7 +104,7 @@
   @media (max-width:700px){
     body{font-size:13px} main,.wrap{padding-left:12px!important;padding-right:12px!important}
     .grid{grid-template-columns:1fr!important} .card{padding:16px 18px;border-radius:18px} .card.big{min-height:0} .bignum{font-size:40px} .val{font-size:28px}
-    h1{font-size:24px} .top{gap:12px} .sync{padding:10px 14px} .per{font-size:12px}
+    h1{font-size:24px} .top{gap:12px} .sync{padding:10px 14px} .per{font-size:16px}
     .tabs{flex-wrap:wrap;overflow:visible} .tab{padding:9px 12px;font-size:13px}
     .tabtools{position:static;width:100%;margin:0;padding:8px 0;justify-content:flex-end;order:9} .tabtools button{padding:8px 12px;font-size:13px;white-space:nowrap}
     .exp .menu{right:0} .sheet{padding:10px;max-height:75vh} .sheet th{top:-10px}
@@ -123,7 +123,7 @@
     </div>
     <div class="status noprint">
       <span><span class="dot" id="dot"></span><b id="liveTxt">Belum terhubung</b> <span id="liveSub"></span></span>
-      <button id="bPull" class="sync"><i>&#x21bb;</i>Menyinkronkan</button>
+      <button id="bPull" class="sync"><i>&#x21bb;</i>Refresh</button>
     </div>
     <div class="srcline noprint" id="srcLine"></div>
   </div>
@@ -131,7 +131,7 @@
   <div id="pop"><div class="box"><div class="hd"><h3 id="popT"></h3><span class="pbt"><button id="popPdf" class="primary">Export PDF</button><button id="popXls" class="primary">Export Excel</button><button class="x" id="popX">&times;</button></span></div><div class="bd" id="popB"></div></div></div>
   <div class="grid" id="cards"></div>
   <details class="panel noprint"><summary>Pengaturan: judul opname, cabang</summary>
-    <div class="hint" id="srcStat">Belum terhubung. Klik Menyinkronkan untuk mengambil data dari spreadsheet.</div>
+    <div class="hint" id="srcStat">Belum terhubung. Klik Refresh untuk mengambil data dari spreadsheet.</div>
     <label for="opTitle" style="margin-top:14px">Judul opname (tampil di baris 4 Sheet1 &amp; PKS &amp; Customer)</label>
     <input type="text" id="opTitle">
     <details style="margin-top:10px"><summary>Pengaturan: Cabang yang masuk &quot;PKS &amp; Customer&quot;</summary>
@@ -393,7 +393,7 @@ function renderTop() {
     <div data-pop="cek" class="card ${sel === 0 ? 'grn' : sel == null ? 'amb' : 'red'}"><div class="lb"><i></i>Cek total Database</div><div class="val">${sel == null ? '-' : sel === 0 ? 'Cocok' : 'Selisih'}</div><div class="sb">${sel == null ? 'Baris Total: tidak ditemukan' : 'selisih Rp ' + fmt(sel)}</div></div>
     <div data-pop="item" class="card ${nIssue ? 'red' : 'grn'}"><div class="lb"><i></i>Perlu dilengkapi di Data</div><div class="val">${nIssue} item</div><div class="sb">${r.newCust.length} customer baru &middot; ${r.missSA.length} SA baru &middot; No PKB terisi ${r.nPkb} baris</div></div>`;
   $('per').textContent = 'Per : ' + (db.asOf ? PL.fmtDateLong(db.asOf) : '-');
-  $('srcLine').textContent = 'Sumber: ' + state.src + ' | Database (' + r.s1.length.toLocaleString('id-ID') + ' baris), Data (' + state.data.length + '), PSO (' + state.pso.length + ')';
+  $('srcLine').textContent = 'Sumber: ' + state.src;
 }
 
 function renderOpts() {
@@ -426,7 +426,7 @@ function rawSpec(tab) {
   return null;
 }
 function rawTable(sp) {
-  if (!sp.rows || !sp.rows.length) return '<div class="hint">Belum ada data. Klik Menyinkronkan untuk mengambil dari spreadsheet.</div>';
+  if (!sp.rows || !sp.rows.length) return '<div class="hint">Belum ada data. Klik Refresh untuk mengambil dari spreadsheet.</div>';
   const MAX = 3000, n = sp.heads.length;
   const body = sp.rows.slice(0, MAX).map(r => '<tr>' + sp.heads.map((h, c) => '<td' + (sp.conv && sp.conv[c] === 'n' ? ' class="r"' : '') + '>' + esc(cellDisp(r[c], sp.conv && sp.conv[c])) + '</td>').join('') + '</tr>').join('');
   return '<div class="hint" style="margin-bottom:6px">' + esc(sp.note || '') + ' &mdash; ' + sp.rows.length + ' baris' + (sp.rows.length > MAX ? ' (ditampilkan ' + MAX + ' pertama)' : '') + '</div><table><thead><tr>' + sp.heads.map(h => '<th>' + esc(h) + '</th>').join('') + '</tr></thead><tbody>' + body + '</tbody></table>';
@@ -735,10 +735,10 @@ async function pull(auto) {
     const got = ['Database', 'Data', 'PSO', 'Sebelumnya'].filter(k => j[k] && j[k].length > 1).length;
     const jam = new Date().toLocaleString('id-ID', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     $('dot').className = 'dot live'; $('liveTxt').textContent = 'Live';
-    $('liveSub').innerHTML = '&middot; <b>' + got + ' dari 4 sheet</b> tersinkron <b>' + jam + '</b> &middot; otomatis tiap 2 menit';
+    $('liveSub').innerHTML = '&middot; <b>' + got + ' dari 4 sheet</b> diperbarui <b>' + jam + '</b> &middot; otomatis tiap 2 menit';
     $('srcStat').textContent = 'Terhubung. Diambil ' + new Date().toLocaleString('id-ID') + ': Database ' + state.db.rows.length + ' baris, Data ' + state.data.length + ', PSO ' + state.pso.length + ', PKS & Customer sebelumnya ' + Object.keys(state.prevPks).length + ', Data Sebelumnya ' + (state.rawPrev ? state.rawPrev.length : 0) + ' baris, Pribadi sebelumnya ' + Object.keys(state.prevPri).length + ' catatan. Terisi dari data sebelumnya: ' + r.nPrevKet + ' keterangan/tgl TTD, ' + r.nCabPrev + ' cabang. No PKB terisi: ' + r.nPkb + ' baris.';
   } catch (e) {
-    $('dot').className = 'dot err'; $('liveTxt').textContent = 'Gagal tersinkron'; $('liveSub').textContent = '· menampilkan data sebelumnya';
+    $('dot').className = 'dot err'; $('liveTxt').textContent = 'Gagal memuat'; $('liveSub').textContent = '· menampilkan data sebelumnya';
     $('srcStat').textContent = 'Gagal mengambil data: ' + e.message + '. Pastikan spreadsheet sudah dipublikasikan ke web dan komputer sedang online. Data yang tampil masih data sebelumnya.';
   }
   $('bPull').classList.remove('busy');
