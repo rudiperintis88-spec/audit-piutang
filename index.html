@@ -126,7 +126,7 @@
     <div class="tab on" data-t="s1">Sheet1</div>
     <div class="tab" data-t="pks">PKS &amp; Customer</div>
     <div class="tab" data-t="pri">Piutang Customer Pribadi</div>
-    <span class="tabtools"><button id="bPdf" class="primary">Export PDF (tab ini)</button><button id="bXlsx" class="primary">Export Excel (3 sheet)</button></span>
+    <span class="tabtools"><button id="bPdf" class="primary">Export PDF (tab ini)</button><button id="bXlsx" class="primary">Export Excel (semua tab)</button></span>
   </div>
   <div class="sheet" id="sheet"></div>
 </main>
@@ -485,8 +485,27 @@ function mkPri(r) {
   ws['!cols'] = [{ wch: 22 }, { wch: 42 }, { wch: 16 }, { wch: 6 }, { wch: 42 }];
   return ws;
 }
+function mkRaw(tab) {
+  const sp = rawSpec(tab), A = [sp.heads];
+  (sp.rows || []).forEach(r => A.push(sp.heads.map((h, c) => {
+    const v = r[c], k = sp.conv && sp.conv[c];
+    if (v == null || v === '') return '';
+    if (k === 'd') { const s = PL.parseDate(v); return s != null ? s : v; }
+    if (k === 'n') return typeof v === 'number' || /^[\d.,\s-]+$/.test(String(v)) ? PL.parseNum(v) : v;
+    return v;
+  })));
+  const ws = XLSX.utils.aoa_to_sheet(A);
+  if (sp.conv) for (let R = 1; R < A.length; R++) sp.conv.forEach((k, c) => {
+    const cell = ws[XLSX.utils.encode_cell({ r: R, c })]; if (!cell || cell.t !== 'n') return;
+    if (k === 'd') cell.z = 'dd/mm/yyyy'; else if (k === 'n') cell.z = '#,##0';
+  });
+  ws['!cols'] = sp.heads.map(h => ({ wch: Math.max(10, String(h).length + 2) }));
+  return ws;
+}
 $('bXlsx').onclick = () => {
   const r = state.res, wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, mkRaw('data'), 'Data');
+  XLSX.utils.book_append_sheet(wb, mkRaw('db'), 'Database');
   XLSX.utils.book_append_sheet(wb, mkSheet('s1', r), 'Sheet1');
   XLSX.utils.book_append_sheet(wb, mkSheet('pks', r), 'PKS & Customer');
   XLSX.utils.book_append_sheet(wb, mkPri(r), 'Piutang Customer Pribadi');
