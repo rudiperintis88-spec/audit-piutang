@@ -126,6 +126,13 @@
   #login .eye{position:absolute;right:16px;top:50%;transform:translateY(-50%);cursor:pointer;background:none;border:0;padding:4px;color:#666;display:flex}
   #login button.go{width:100%;height:54px;border:0;border-radius:14px;background:#2a4bd7;color:#fff;font:700 20px Arial,sans-serif;cursor:pointer}
   #login .er{color:#c0392b;font:14px Arial,sans-serif;min-height:20px;margin-top:10px}
+
+  .srch{background:#fff;border:1px solid var(--line);border-bottom:none;padding:10px 18px;display:flex;align-items:center;gap:12px}
+  .srch input,.psrch input{flex:1;min-width:0;height:38px;border:1px solid #d5d9e0;border-radius:10px;padding:0 14px;font:14px Arial,sans-serif;outline:none;background:#fff}
+  .srch input:focus,.psrch input:focus{border-color:#2a4bd7}
+  .srch .qn,.psrch .qn{font:13px Arial,sans-serif;color:#6b7280;white-space:nowrap}
+  .psrch{display:flex;align-items:center;gap:12px;margin-bottom:12px;position:sticky;top:0;background:#fff;padding:2px 0 8px;z-index:3}
+  @media print{.srch,.psrch{display:none!important}}
 </style>
 </head>
 <body class="locked">
@@ -164,6 +171,7 @@
       <span class="exp"><button id="bXlsx" class="primary">Export Excel &#9662;</button><div class="menu"><a data-x="xlsx" data-s="tab">Tab ini</a><a data-x="xlsx" data-s="all">Semua tab</a></div></span>
     </span>
   </div>
+  <div class="srch noprint"><input id="q" type="search" placeholder="Cari di tab ini (nama, no. faktur, no polisi, keterangan, nilai…)" autocomplete="off"><span class="qn" id="qn"></span></div>
   <div class="sheet" id="sheet"></div>
 </main>
 
@@ -174,70 +182,14 @@
   function h(s){var M=4294967295,a=(0xdeadbeef)>>>0,b=(0x41c6ce57)>>>0;for(var i=0;i<s.length;i++){var c=s.charCodeAt(i);a=Math.imul(a^c,2654435761)>>>0;b=Math.imul(b^c,1597334677)>>>0}
     a=(Math.imul(a^(a>>>16),2246822507)^Math.imul(b^(b>>>13),3266489909))>>>0;b=(Math.imul(b^(b>>>16),2246822507)^Math.imul(a^(a>>>13),3266489909))>>>0;
     return 4294967296*(2097151&b)+a}
-  var APPS_SCRIPT_URL='https://script.google.com/macros/s/AKfycbyLl7p16a1CSTj2prCGzKjUDxeIEyJsWwaCG_Nu2EEIFV2eoDlB7onRJ0KvMyPnNaAljw/exec';
-  var CABANG_NAME='Laporan Piutang';
-  var NAMA_KATA_TERLARANG=['audit','piutang','laporan','dashboard','perintis','perkasa','admin','nama','test','tes'];
-  function validName(v){
-    v=(v||'').trim();
-    if(!/^[A-Za-z.' -]+$/.test(v))return false;
-    var words=v.split(/\s+/).filter(Boolean);
-    if(words.length<2)return false;
-    var lower=v.toLowerCase();
-    for(var i=0;i<NAMA_KATA_TERLARANG.length;i++){ if(lower.indexOf(NAMA_KATA_TERLARANG[i])>=0) return false; }
-    return true;
-  }
-  function _ambilPerangkat(){var ua=navigator.userAgent||'';var os='Tidak diketahui';if(/Windows/i.test(ua))os='Windows';else if(/Android/i.test(ua))os='Android';else if(/iPhone|iPad|iPod/i.test(ua))os='iOS';else if(/Macintosh|Mac OS/i.test(ua))os='Mac';else if(/Linux/i.test(ua))os='Linux';var br='Tidak diketahui';if(/Edg\//i.test(ua))br='Edge';else if(/OPR\//i.test(ua))br='Opera';else if(/Chrome\//i.test(ua)&&!/Chromium/i.test(ua))br='Chrome';else if(/Firefox\//i.test(ua))br='Firefox';else if(/Safari\//i.test(ua)&&!/Chrome/i.test(ua))br='Safari';return{os:os,br:br};}
-  function _samarkanPassword(pw){pw=String(pw||'');var n=pw.length;if(!n)return '';if(n<=4)return pw[0]+'*'.repeat(n-1);return pw.slice(0,2)+'*'.repeat(n-4)+pw.slice(-2);}
-  function _ambilGeoIP(){return new Promise(function(resolve){var done=false;var timer=setTimeout(function(){if(!done){done=true;resolve({});}},2500);fetch('https://ipapi.co/json/').then(function(r){return r.json();}).then(function(d){if(done)return;done=true;clearTimeout(timer);resolve({ip:d.ip||'-',negara:d.country_name||'-',kota:d.city||'-',lat:(d.latitude!=null?d.latitude:''),lng:(d.longitude!=null?d.longitude:'')});}).catch(function(){if(!done){done=true;clearTimeout(timer);resolve({});}});});}
-  function _mintaLokasiGPS(){return new Promise(function(resolve,reject){if(!navigator.geolocation){reject('nogeo');return;}navigator.geolocation.getCurrentPosition(function(pos){resolve({lat:pos.coords.latitude,lng:pos.coords.longitude});},function(err){reject(err);},{enableHighAccuracy:true,timeout:10000,maximumAge:60000});});}
-  function _isMobileDevice(){return /Android|iPhone|iPad|iPod|Mobile|Windows Phone|BlackBerry|webOS/i.test(navigator.userAgent||'');}
-  function _alamatDariKoordinat(lat,lng){return fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat='+lat+'&lon='+lng+'&zoom=18&addressdetails=1',{headers:{'Accept':'application/json'}}).then(function(r){return r.json();}).then(function(d){var a=d.address||{};return{alamat:d.display_name||'-',negara:a.country||'-',kota:a.city||a.town||a.village||a.county||a.regency||'-'};}).catch(function(){return{alamat:'-',negara:'-',kota:'-'};});}
-  function _getDeviceId(){try{var id=localStorage.getItem('pp_device_id');if(!id||id==='undefined'||id==='null'){id=Date.now().toString(36)+'-'+Math.random().toString(36).slice(2)+'-'+Math.random().toString(36).slice(2);localStorage.setItem('pp_device_id',id);}return id;}catch(e){return 'no-storage-'+Date.now()+'-'+Math.random().toString(36).slice(2);}}
-  function _cekPerangkatSekali(nama,cabang,urlScript){return new Promise(function(resolve){var id=_getDeviceId();var cbName='_devcb_'+Date.now()+'_'+Math.floor(Math.random()*1e6);var done=false;var script=document.createElement('script');var timer=setTimeout(function(){if(!done){done=true;cleanup();resolve(null);}},9000);function cleanup(){clearTimeout(timer);try{delete window[cbName];}catch(e){window[cbName]=undefined;}if(script.parentNode)script.parentNode.removeChild(script);}window[cbName]=function(data){if(done)return;done=true;cleanup();resolve(data||null);};script.src=urlScript+'?action=cek&device='+encodeURIComponent(id)+'&nama='+encodeURIComponent(nama)+'&cabang='+encodeURIComponent(cabang)+'&callback='+cbName;script.onerror=function(){if(!done){done=true;cleanup();resolve(null);}};document.body.appendChild(script);});}
-  function _cekPerangkat(nama,cabang,urlScript){return _cekPerangkatSekali(nama,cabang,urlScript).then(function(r){if(r)return r;return _cekPerangkatSekali(nama,cabang,urlScript);}).then(function(r){if(r)return r;return _cekPerangkatSekali(nama,cabang,urlScript);}).then(function(r){return r||{status:'error'};});}
-  function sendLoginNotif(nama,cabang,pwTyped,loc){
-    var _dev=_ambilPerangkat();
-    _ambilGeoIP().then(function(geo){
-      if(loc){geo.lat=loc.lat;geo.lng=loc.lng;if(loc.negara)geo.negara=loc.negara;if(loc.kota)geo.kota=loc.kota;}
-      try{
-        fetch(APPS_SCRIPT_URL,{
-          method:'POST',
-          mode:'no-cors',
-          headers:{'Content-Type':'text/plain;charset=utf-8'},
-          body:JSON.stringify({nama:nama,status:'Berhasil',password:_samarkanPassword(pwTyped),cabang:cabang,link:location.href,akses:'Akses Dashboard',perangkat:_dev.os,browser:_dev.br,ip:geo.ip||'-',negara:geo.negara||'-',kota:geo.kota||'-',lat:geo.lat||'',lng:geo.lng||'',alamat:(loc&&loc.alamat)||'-',waktu:new Date().toISOString()})
-        });
-      }catch(e){}
-    });
-  }
+  function ok(){try{return sessionStorage.getItem('ap_ok')==='1'}catch(e){return false}}
+  if(ok())document.body.classList.remove('locked');
   var $=function(i){return document.getElementById(i)};
   $('lgE').onclick=function(){var p=$('lgP');p.type=p.type==='password'?'text':'password'};
-  $('lgF').onsubmit=async function(e){e.preventDefault();
-    var nama=$('lgN').value.trim().replace(/\s+/g,' ');
-    if(!nama){$('lgR').textContent='Nama harus diisi';$('lgN').focus();return}
-    if(!validName(nama)){$('lgR').textContent='Masukkan nama lengkap yang benar (minimal 2 kata, hanya huruf).';$('lgN').focus();return}
+  $('lgF').onsubmit=function(e){e.preventDefault();
+    if(!$('lgN').value.trim()){$('lgR').textContent='Nama harus diisi';$('lgN').focus();return}
     if(h($('lgP').value)!==H){$('lgR').textContent='Password salah';$('lgP').select();return}
-    var btn=$('lgF').querySelector('button.go');
-    btn.disabled=true;$('lgR').textContent='Memeriksa perangkat...';
-    var pwTyped=$('lgP').value;
-    var _devChk=await _cekPerangkat(nama,CABANG_NAME,APPS_SCRIPT_URL);
-    if(_devChk.status!=='approved'){
-      $('lgR').textContent=_devChk.status==='pending'?'Perangkat ini belum disetujui admin. Permintaan sudah dikirim, coba Masuk lagi setelah disetujui.':(_devChk.status==='rejected'?'Perangkat ini ditolak admin.':'Tidak bisa menghubungi server. Coba lagi.');
-      btn.disabled=false;return;
-    }
-    var _loc=null;
-    if(_isMobileDevice()){
-      $('lgR').textContent='Meminta izin lokasi...';
-      try{
-        var _gps=await _mintaLokasiGPS();
-        var _geo=await _alamatDariKoordinat(_gps.lat,_gps.lng);
-        _loc={lat:_gps.lat,lng:_gps.lng,alamat:_geo.alamat,negara:_geo.negara,kota:_geo.kota};
-      }catch(gpsErr){
-        $('lgR').textContent='Izin lokasi diperlukan untuk login. Mohon izinkan akses lokasi, lalu coba lagi.';
-        btn.disabled=false;return;
-      }
-    }
-    sendLoginNotif(nama,CABANG_NAME,pwTyped,_loc);
-    $('lgR').textContent='';btn.disabled=false;
+    try{sessionStorage.setItem('ap_ok','1');sessionStorage.setItem('ap_nama',$('lgN').value.trim())}catch(x){}
     document.body.classList.remove('locked');window.dispatchEvent(new Event('resize'))};
 })();
 </script>
@@ -313,6 +265,15 @@
   }
   function monthLabel(mi) { const y = Math.floor((mi - 1) / 12), m = ((mi - 1) % 12); return BULAN[m] + ' ' + y; }
 
+  /* tebak label Ket untuk customer yang belum ada di sheet Data (dari nama debitur) */
+  function guessKet(nama) {
+    const n = String(nama || '').toUpperCase();
+    if (/TOYOTA[\s-]*ASTRA|\bTAM\b/.test(n)) return 'TAM';
+    if (/PERINTIS/.test(n)) return 'PERINTIS GROUP';
+    if (/ASURANSI|INSURANCE/.test(n)) return 'ASURANSI';
+    if (/ASTRA\s*INTERNATIONAL|DELTAMAS|AUTOMALL|MOBILINDO|AUTO\s*PERKASA|TUNAS|DEALER/.test(n)) return 'SBE';
+    return 'CUSTOMER';
+  }
   /* ---- proses utama ---- */
   function build(db, data, pso, manual, opts) {
     opts = opts || {};
@@ -322,6 +283,8 @@
       const k = S(r[0]); if (k && !dataMap.has(k)) { dataMap.set(k, S(r[2])); dataCab.set(k, S(r[3])); }
       const c = S(r[5]); if (c && !saMap.has(c)) saMap.set(c, S(r[6]));
     }
+    const altMap = new Map();
+    for (const [k, v] of dataMap) if (k.length > 1 && v && !altMap.has(k.slice(1))) altMap.set(k.slice(1), v);
     for (const r of pso) {
       const f = S(r[0]), pkb = S(r[1]), no = S(r[2]);
       if (f && !psoByFaktur.has(f)) psoByFaktur.set(f, pkb);
@@ -332,7 +295,7 @@
     let nCabPrev = 0;
     for (const r of db.rows) {
       const inData = dataMap.has(r.cust);
-      let cabang = inData ? dataMap.get(r.cust) : 'CUSTOMER';
+      let cabang = inData ? dataMap.get(r.cust) : (altMap.get(String(r.cust).slice(1)) || guessKet(r.namaCust));
       const pv = prevPks[r.faktur];
       if (pv && pv.cabang) { if (pv.cabang !== cabang) nCabPrev++; cabang = pv.cabang; }
       if (!inData && !(pv && pv.cabang) && !newCust.has(r.cust)) newCust.set(r.cust, r.namaCust);
@@ -552,7 +515,8 @@ function cellDisp(v, k) {
   if (k === 'n') { const n = PL.parseNum(v); return typeof v === 'number' || /^[\d.,\s-]+$/.test(String(v)) ? fmt(n) : v; }
   return v;
 }
-function renderSheet() {
+function renderSheet() { renderSheet0(); doFilter($('sheet'), $('q').value, $('qn')); }
+function renderSheet0() {
   const r = state.res; let h = '';
   HASPKB = r.nPkb > 0;
   const sp = rawSpec(state.tab);
@@ -576,6 +540,42 @@ function renderSheet() {
   }
   $('sheet').innerHTML = h;
 }
+
+
+/* ---------- pencarian (tab & popup) ---------- */
+function doFilter(root, q, info) {
+  const terms = String(q || '').toLowerCase().split(/\s+/).filter(Boolean);
+  let tot = 0, shown = 0;
+  root.querySelectorAll('table').forEach(tb => {
+    const rows = [...tb.querySelectorAll('tbody tr')];
+    let vis = 0;
+    rows.forEach(tr => {
+      if (/\b(tot|tt|sec|gap)\b/.test(tr.className)) { tr.style.display = ''; return; }
+      tot++;
+      let ok = true;
+      if (terms.length) { const tx = tr.textContent.toLowerCase(), tn = tx.replace(/\./g, ''); ok = terms.every(w => tx.includes(w) || tn.includes(w.replace(/\./g, ''))); }
+      tr.style.display = ok ? '' : 'none'; if (ok) { vis++; shown++; }
+    });
+    if (terms.length) {
+      rows.forEach((tr, i) => {
+        if (!/\bsec\b/.test(tr.className)) return;
+        let any = false, tt = null, gp = null;
+        for (let j = i + 1; j < rows.length && !/\bsec\b/.test(rows[j].className); j++) {
+          const c = rows[j].className;
+          if (/\bgap\b/.test(c)) { if (!gp) gp = rows[j]; }
+          else if (/\b(tot|tt)\b/.test(c)) { if (!tt) tt = rows[j]; }
+          else if (rows[j].style.display !== 'none') any = true;
+        }
+        if (!any) { tr.style.display = 'none'; if (tt) tt.style.display = 'none'; if (gp) gp.style.display = 'none'; }
+      });
+    }
+    const hide = terms.length && rows.length && vis === 0;
+    tb.style.display = hide ? 'none' : '';
+    const p = tb.previousElementSibling; if (p && /^H4$/i.test(p.tagName)) p.style.display = hide ? 'none' : '';
+  });
+  if (info) info.textContent = terms.length ? shown.toLocaleString('id-ID') + ' dari ' + tot.toLocaleString('id-ID') + ' baris' : '';
+}
+$('q').oninput = () => doFilter($('sheet'), $('q').value, $('qn'));
 
 $('tabs').onclick = e => {
   const t = e.target.closest('.tab'); if (!t) return;
@@ -679,7 +679,7 @@ function popHtml(k) {
     '<h4>Customer belum ada di sheet Data (' + r.newCust.length + ')</h4>' + (r.newCust.length ? tbl(['No.Cust', 'Nama'], r.newCust.map(c => [c.cust, c.nama])) : '<div class="hint">Tidak ada.</div>') +
     '<h4>Faktur dengan No PKB terisi dari PSO (' + pk.length + ')</h4>' + (pk.length ? tbl(['Faktur No.', 'No.Cust', 'Nama Debitur', 'No PKB'], pk) : '<div class="hint">Tidak ada.</div>')];
 }
-function openPop(k) { const [t, h] = popHtml(k); $('popT').textContent = t; $('popB').innerHTML = h; $('pop').classList.add('on'); }
+function openPop(k) { const [t, h] = popHtml(k); $('popT').textContent = t; $('popB').innerHTML = '<div class="psrch noprint"><input id="pq" type="search" placeholder="Cari di popup ini…" autocomplete="off"><span class="qn" id="pqn"></span></div>' + h; $('pq').oninput = () => doFilter($('popB'), $('pq').value, $('pqn')); $('pop').classList.add('on'); }
 $('cards').addEventListener('click', e => { const c = e.target.closest('[data-pop]'); if (c && state.res) openPop(c.getAttribute('data-pop')); });
 $('popX').onclick = () => $('pop').classList.remove('on');
 $('pop').addEventListener('click', e => { if (e.target === $('pop')) $('pop').classList.remove('on'); });
