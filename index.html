@@ -59,7 +59,7 @@
   .tab:hover{color:var(--ink)} .tab.on{color:var(--ink);border-bottom-color:var(--ink);font-weight:700}
   .sheet{background:#fff;border:1px solid var(--line);border-top:none;border-radius:0 0 18px 18px;padding:18px;overflow:auto;max-height:70vh}
   .ttl{text-align:center;font:400 30px/1.1 var(--serif);margin:2px 0 6px;letter-spacing:.02em}
-  .opn{font-weight:600;margin-bottom:10px;text-align:center;color:#3a4254}
+  .opn{font-weight:600;margin-bottom:10px;text-align:left;color:#3a4254}
   table{border-collapse:separate;border-spacing:0;width:100%;font-size:12.5px}
   th,td{padding:6px 10px;white-space:nowrap;border-bottom:1px solid #eceef2}
   th{background:#f5f6f8;position:sticky;top:-18px;z-index:2;text-align:left;font-weight:600;color:#4b5365;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
@@ -558,7 +558,7 @@ function makePdf() {
   const W = doc.internal.pageSize.getWidth();
   let y = 30;
   doc.setFont('times', 'bold'); doc.setFontSize(15); doc.text(lines[0], W / 2, y, { align: 'center' });
-  if (lines[1]) { y += 16; doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text(String(lines[1]), W / 2, y, { align: 'center' }); }
+  if (lines[1]) { y += 16; doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text(String(lines[1]), 20, y, { align: 'left' }); }
   const opt = {
     head, body, startY: y + 10, theme: 'grid', margin: { left: 20, right: 20, top: 28, bottom: 26 },
     styles: { fontSize: 6.5, cellPadding: 2, lineColor: [170, 170, 170], lineWidth: 0.3, overflow: 'linebreak', textColor: 25 },
